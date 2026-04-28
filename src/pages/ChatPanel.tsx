@@ -7,7 +7,6 @@ import {
 import { ChatMessage, GeminiMessage } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
-// ─── Inline SVG icons ──────────────────────────────────────────────────────────
 const SendIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -54,7 +53,6 @@ const AlertIcon = () => (
   </svg>
 );
 
-// ─── Suggested prompts ─────────────────────────────────────────────────────────
 const PROMPTS = [
   { tag: "Leave balance", text: "How many vacation days do I have left this year?" },
   { tag: "Request time off", text: "I'd like to request sick leave for tomorrow." },
@@ -64,7 +62,6 @@ const PROMPTS = [
   { tag: "Benefits", text: "What benefits and perks am I entitled to?" },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtTime = (ts: ChatMessage['timestamp']) =>
   new Date(toMs(ts)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -201,7 +198,6 @@ function Bubble({ msg, isLast, photoURL }: { msg: ChatMessage; isLast: boolean; 
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function ChatPanel() {
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -213,9 +209,7 @@ export default function ChatPanel() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load latest session on mount (or start fresh — no session pre-loaded for simplicity)
   useEffect(() => {
-    // For now, each page load is a new session until user explicitly loads a previous one
     setMessages([]);
     setSessionId(null);
   }, [user?.uid]);
@@ -247,7 +241,6 @@ export default function ChatPanel() {
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setShowScrollBtn(false);
 
-    // Optimistic user bubble
     const tempId = `optimistic-${Date.now()}`;
     const userMsg: ChatMessage = {
       id: tempId, userId: user.uid,
@@ -259,22 +252,18 @@ export default function ChatPanel() {
     setTimeout(scrollToBottom, 50);
 
     try {
-      // Create session on first message
       let activeSession = sessionId;
       if (!activeSession) {
         activeSession = await createSession(user.uid, rawText);
         setSessionId(activeSession);
-        // Backfill the sessionId on the optimistic message
         setMessages(prev => prev.map(m => m.id === tempId ? { ...m, sessionId: activeSession! } : m));
       }
 
-      // Build Gemini history from current state
       const history: GeminiMessage[] = messages
         .filter(m => m.text)
         .map(m => ({ role: m.sender === 'user' ? 'user' : 'model', parts: [{ text: m.text }] }));
       history.push({ role: 'user', parts: [{ text: rawText }] });
 
-      // Stream AI response (sanitisation + rate limiting happen inside getAiResponse)
       const stream = await getAiResponse(user.uid, rawText, history, profile ?? undefined);
 
       let aiText = '';
@@ -283,11 +272,10 @@ export default function ChatPanel() {
       setIsStreaming(false);
 
       for await (const chunk of stream) {
-        aiText += chunk.text();
+        aiText += chunk.text;
         setMessages(prev => prev.map(m => m.id === aiId ? { ...m, text: aiText } : m));
       }
 
-      // Persist both messages (with retry logic inside saveMessage)
       const msgCount = messages.length;
       saveMessage(user.uid, activeSession!, rawText, 'user', msgCount);
       saveMessage(user.uid, activeSession!, aiText, 'ai', msgCount + 1);
@@ -327,13 +315,11 @@ export default function ChatPanel() {
         .lm-glow:focus-within{box-shadow:0 0 0 1.5px rgba(124,58,237,0.5),0 8px 30px rgba(109,40,217,0.15)!important}
       `}</style>
 
-      {/* Ambient orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -left-20 w-96 h-96 rounded-full opacity-[0.12]" style={{ background: 'radial-gradient(circle,#7c3aed,transparent 70%)' }}/>
         <div className="absolute top-1/2 -right-32 w-80 h-80 rounded-full opacity-[0.08]" style={{ background: 'radial-gradient(circle,#4f46e5,transparent 70%)' }}/>
       </div>
 
-      {/* Header */}
       <div className="relative z-10 flex items-center justify-between px-6 py-4"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,8,24,0.6)', backdropFilter: 'blur(24px)' }}>
         <div className="flex items-center gap-3">
@@ -369,7 +355,6 @@ export default function ChatPanel() {
         </div>
       </div>
 
-      {/* Messages */}
       <div ref={scrollRef} onScroll={onScroll} className="lm-scroll relative z-10 flex-1 overflow-y-auto px-6 py-6">
         <AnimatePresence>
           {empty && (
@@ -438,7 +423,6 @@ export default function ChatPanel() {
         <div ref={bottomRef} className="h-2"/>
       </div>
 
-      {/* Scroll btn */}
       <AnimatePresence>
         {showScrollBtn && (
           <motion.button initial={{ opacity: 0, scale: 0.8, y: 4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8 }}
@@ -451,7 +435,6 @@ export default function ChatPanel() {
         )}
       </AnimatePresence>
 
-      {/* Input */}
       <div className="relative z-10 px-4 pb-4 pt-3"
         style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(10,8,24,0.4)', backdropFilter: 'blur(20px)' }}>
         <div className="lm-glow flex items-end gap-3 rounded-2xl px-4 py-3 transition-all duration-200"

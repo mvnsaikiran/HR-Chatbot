@@ -1,4 +1,4 @@
-import { streamChat } from './gemini';
+import { ai, MODELS } from './gemini';
 import { db } from '../lib/firebase';
 import {
   collection, addDoc, serverTimestamp,
@@ -89,7 +89,16 @@ export async function getAiResponse(
   const userCtx = userProfile
     ? `\n\n## Current Employee\n- Name: ${userProfile.displayName}\n- Department: ${userProfile.department ?? 'General'}\n- Role: ${userProfile.role}`
     : '';
-  return streamChat(contextWindow, SYSTEM_PROMPT + userCtx);
+
+  return ai.models.generateContentStream({
+    model: MODELS.FLASH,
+    contents: contextWindow,
+    config: {
+      systemInstruction: SYSTEM_PROMPT + userCtx,
+      temperature: 0.5,
+      maxOutputTokens: 400,
+    },
+  });
 }
 
 export async function createSession(userId: string, firstMessage: string): Promise<string> {
