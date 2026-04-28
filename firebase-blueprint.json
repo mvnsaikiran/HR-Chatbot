@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "User": {
+      "title": "Employee Profile",
+      "description": "Core employee data and role information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "employee"] },
+        "photoURL": { "type": "string" },
+        "managerId": { "type": "string" },
+        "joinDate": { "type": "string", "format": "date-time" },
+        "department": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "on_leave", "terminated"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "LeaveRequest": {
+      "title": "Leave Request",
+      "description": "Requests for time off made by employees.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "type": { "type": "string", "enum": ["vacation", "sick", "personal", "maternity", "paternity"] },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "reason": { "type": "string" },
+        "managerComments": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["employeeId", "type", "startDate", "endDate", "status"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "Conversation history between employee and Lumina AI.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "text": { "type": "string" },
+        "sender": { "type": "string", "enum": ["user", "ai"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "text", "sender", "timestamp"]
+    },
+    "OrgPolicy": {
+      "title": "Organization Policy",
+      "description": "Consolidated HR policy text for AI consumption.",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["content"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Individual employee profile documents."
+    },
+    "leaveRequests/{requestId}": {
+      "schema": "LeaveRequest",
+      "description": "All leave requests across the organization."
+    },
+    "users/{userId}/chatHistory/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "User-specific chat history with the HR bot."
+    },
+    "settings/policies": {
+      "schema": "OrgPolicy",
+      "description": "Global HR policy configuration."
+    }
+  }
+}

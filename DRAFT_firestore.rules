@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUserVerified() {
+      // In this demo environment, we might not have hard email verification
+      // but standard instructions recommend it.
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserData(request.auth.uid).role == 'admin';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      return data.uid == request.auth.uid
+        && data.email is string && data.email.size() <= 100
+        && (data.role == 'employee' || data.role == 'admin')
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 300))
+        && (!('department' in data) || (data.department is string && data.department.size() <= 50))
+        && data.keys().hasAll(['uid', 'email', 'role'])
+        && data.keys().size() <= 10;
+    }
+
+    function isValidLeave(data) {
+      return data.employeeId == request.auth.uid
+        && data.type in ['vacation', 'sick', 'personal', 'maternity', 'paternity']
+        && data.startDate is string // simplicity for rules, ideally timestamp
+        && data.endDate is string
+        && data.status in ['pending', 'approved', 'rejected']
+        && (!('reason' in data) || (data.reason is string && data.reason.size() <= 500))
+        && data.keys().hasAll(['employeeId', 'type', 'startDate', 'endDate', 'status'])
+        && data.keys().size() <= 10;
+    }
+
+    function isValidMessage(data) {
+      return data.userId == request.auth.uid
+        && data.sender in ['user', 'ai']
+        && data.text is string && data.text.size() <= 1000
+        && data.timestamp is timestamp
+        && data.keys().hasAll(['userId', 'text', 'sender', 'timestamp'])
+        && data.keys().size() == 4;
+    }
+
+    // --- Match Groups ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin(); // Only admins can browse all users
+
+      allow create: if isOwner(userId) && isValidUser(incoming()) 
+                      && incoming().role == 'employee'; // Self-register as employee
+      
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        // Allow updating personal info but NOT role
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'department', 'status'])
+      ) || isAdmin();
+    }
+
+    match /leaveRequests/{requestId} {
+      allow get: if isSignedIn() && (isOwner(existing().employeeId) || isAdmin());
+      allow list: if isSignedIn() && (isAdmin() || resource.data.employeeId == request.auth.uid);
+
+      allow create: if isSignedIn() && isValidLeave(incoming()) 
+                      && incoming().employeeId == request.auth.uid
+                      && incoming().status == 'pending'; // Users can only create pending requests
+
+      allow update: if isSignedIn() && (
+        // Admin can update status and comments
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'managerComments']))
+        ||
+        // User can update details IF still pending
+        (isOwner(existing().employeeId) && existing().status == 'pending' 
+         && incoming().diff(existing()).affectedKeys().hasOnly(['type', 'startDate', 'endDate', 'reason']))
+      );
+
+      allow delete: if isAdmin() || (isOwner(existing().employeeId) && existing().status == 'pending');
+    }
+
+    match /users/{userId}/chatHistory/{messageId} {
+      allow read, write: if isOwner(userId);
+      // Extra validation on write
+      allow create: if isOwner(userId) && isValidMessage(incoming());
+    }
+
+    match /settings/policies {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
