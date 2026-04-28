@@ -9,8 +9,8 @@ if (!apiKey && import.meta.env.DEV) {
 const genAI = new GoogleGenerativeAI(apiKey);
 
 export const MODELS = {
-  FLASH: 'gemini-1.5-flash',
-  FLASH_LITE: 'gemini-1.5-flash',
+  FLASH: 'gemini-1.5-flash-001',
+  FLASH_LITE: 'gemini-1.5-flash-001',
 } as const;
 
 export type ModelName = (typeof MODELS)[keyof typeof MODELS];
